@@ -1,0 +1,6 @@
+{
+  "name": "NotebookLM Formatter",
+  "description": "Fixes and reformats text from NotebookLM into a clean structure ready for Word documents.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

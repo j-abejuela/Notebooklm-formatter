@@ -1,0 +1,45 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --color-primary: #1A365D;
+  --color-secondary: #2C5282;
+  --color-accent: #3182CE;
+  --color-bg: #F8FAFC;
+  --color-border: #E2E8F0;
+  --color-text-main: #1A202C;
+  --color-text-muted: #718096;
+  
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-serif: "Georgia", serif;
+}
+
+@layer base {
+  body {
+    @apply bg-bg text-text-main font-sans;
+  }
+}
+
+.word-page {
+  @apply bg-white shadow-lg p-10 font-serif text-[#333] leading-relaxed text-[0.95rem] overflow-y-auto w-full h-full;
+}
+
+.word-page h1 {
+  @apply text-2xl border-b-2 border-[#333] mb-4 pb-1 font-sans font-extrabold uppercase;
+}
+
+.word-page h2 {
+  @apply text-lg mt-5 mb-2 text-primary uppercase font-sans font-bold;
+}
+
+.word-page ul {
+  @apply ml-6 mb-4 list-disc;
+}
+
+.word-page li {
+  @apply mb-1;
+}
+
+.word-page strong {
+  @apply font-bold;
+}
