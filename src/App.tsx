@@ -103,27 +103,36 @@ export default function App() {
     if (!outputRef.current) return;
 
     try {
-      // We want to copy the exact HTML that the browser renders, including the KaTeX 
-      // visual elements. When manually selecting text, the browser handles the hidden 
-      // elements intelligently. We simulate this by letting the browser's Selection API
-      // handle the extraction into the clipboard, rather than forcibly grabbing raw innerHTML.
-      
-      const selection = window.getSelection();
-      const range = document.createRange();
-      range.selectNodeContents(outputRef.current);
-      
-      if (selection) {
-        selection.removeAllRanges();
-        selection.addRange(range);
-        
-        // Use the execCommand 'copy' which natively handles the complex DOM
-        // structure of KaTeX much better than constructing a Blob manually.
-        document.execCommand('copy');
-        
-        // Clean up the selection
-        selection.removeAllRanges();
-      }
+      // 1. Create a deep clone so we don't manipulate the visible screen
+      const clone = outputRef.current.cloneNode(true) as HTMLElement;
 
+      // 2. KaTeX creates a complex HTML layout (which causes your weird bullets in Docs) 
+      //    AND a hidden MathML layer. Microsoft Word natively understands MathML and 
+      //    converts it to a beautiful editable equation. Google Docs ignores the MathML
+      //    tags but correctly extracts its text, resulting in a clean, non-duplicated line.
+      const katexElements = clone.querySelectorAll('.katex');
+      katexElements.forEach((el) => {
+        // Extract the native MathML node
+        const mathml = el.querySelector('.katex-mathml math');
+        if (mathml) {
+          // Replace the messy KaTeX spans with pure MathML
+          el.parentNode?.replaceChild(mathml.cloneNode(true), el);
+        }
+      });
+
+      // 3. Fallback to our Blob approach which prevents structural hijacking from getSelection
+      const html = clone.innerHTML;
+      const text = clone.innerText;
+
+      const blobHtml = new Blob([html], { type: 'text/html' });
+      const blobText = new Blob([text], { type: 'text/plain' });
+
+      const data = [new ClipboardItem({
+        'text/html': blobHtml,
+        'text/plain': blobText,
+      })];
+
+      await navigator.clipboard.write(data);
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
     } catch (err) {
