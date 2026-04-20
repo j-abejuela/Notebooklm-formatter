@@ -103,40 +103,27 @@ export default function App() {
     if (!outputRef.current) return;
 
     try {
-      // 1. Create a deep clone of the output element so we don't modify the visible UI
-      const clone = outputRef.current.cloneNode(true) as HTMLElement;
-
-      // 2. KaTeX renders math in two parts for accessibility:
-      //    <math> (hidden screen reader text) and <span class="katex-html"> (visible UI).
-      //    When pasting to Word/Docs, it copies BOTH, resulting in duplicated messy text like "Rk-Ek R_k - E_k".
-      //    We need to extract just the clean source math text.
-      const katexElements = clone.querySelectorAll('.katex');
+      // We want to copy the exact HTML that the browser renders, including the KaTeX 
+      // visual elements. When manually selecting text, the browser handles the hidden 
+      // elements intelligently. We simulate this by letting the browser's Selection API
+      // handle the extraction into the clipboard, rather than forcibly grabbing raw innerHTML.
       
-      katexElements.forEach((el) => {
-        // The original markdown formula is stored in the <annotation> tag by KaTeX
-        const annotation = el.querySelector('annotation[encoding="application/x-tex"]');
-        if (annotation && annotation.textContent) {
-          // Replace the entire KaTeX element with the raw formula wrapped in $ tags
-          // Word/Docs won't render it as a native math object automatically just by pasting HTML,
-          // but this ensures it pastes cleanly as text without the duplication.
-          const textNode = document.createTextNode(`$${annotation.textContent}$`);
-          el.parentNode?.replaceChild(textNode, el);
-        }
-      });
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(outputRef.current);
+      
+      if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(range);
+        
+        // Use the execCommand 'copy' which natively handles the complex DOM
+        // structure of KaTeX much better than constructing a Blob manually.
+        document.execCommand('copy');
+        
+        // Clean up the selection
+        selection.removeAllRanges();
+      }
 
-      // We want to copy as HTML so Word recognizes the headings and lists
-      const html = clone.innerHTML;
-      const text = clone.innerText;
-
-      const blobHtml = new Blob([html], { type: 'text/html' });
-      const blobText = new Blob([text], { type: 'text/plain' });
-
-      const data = [new ClipboardItem({
-        'text/html': blobHtml,
-        'text/plain': blobText,
-      })];
-
-      await navigator.clipboard.write(data);
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
     } catch (err) {
