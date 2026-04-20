@@ -5,6 +5,10 @@
 
 import React, { useState, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import remarkGfm from 'remark-gfm';
+import 'katex/dist/katex.min.css';
 import { 
   ClipboardCopy, 
   Check, 
@@ -240,7 +244,12 @@ export default function App() {
 
               {output && (
                 <div className="word-page" ref={outputRef}>
-                  <ReactMarkdown>{output}</ReactMarkdown>
+                  <ReactMarkdown 
+                    remarkPlugins={[remarkGfm, remarkMath]} 
+                    rehypePlugins={[rehypeKatex]}
+                  >
+                    {output}
+                  </ReactMarkdown>
                 </div>
               )}
             </div>
