@@ -16,7 +16,8 @@ import {
   Eraser, 
   Sparkles,
   Type,
-  Zap
+  Zap,
+  Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
@@ -25,6 +26,7 @@ export default function App() {
   const [input, setInput] = useState('');
   const [output, setOutput] = useState('');
   const [isCopied, setIsCopied] = useState(false);
+  const [isDownloaded, setIsDownloaded] = useState(false);
   const outputRef = useRef<HTMLDivElement>(null);
 
   const formatTextLocally = () => {
@@ -106,19 +108,14 @@ export default function App() {
       // 1. Create a deep clone so we don't manipulate the visible screen
       const clone = outputRef.current.cloneNode(true) as HTMLElement;
 
-      // 2. KaTeX creates a complex HTML layout (which causes your weird bullets in Docs) 
-      //    AND a hidden MathML layer. Microsoft Word natively understands MathML and 
-      //    converts it to a beautiful editable equation. Google Docs ignores the MathML
-      //    tags but correctly extracts its text, resulting in a clean, non-duplicated line.
-      const katexElements = clone.querySelectorAll('.katex');
-      katexElements.forEach((el) => {
-        // Extract the native MathML node
-        const mathml = el.querySelector('.katex-mathml math');
-        if (mathml) {
-          // Replace the messy KaTeX spans with pure MathML
-          el.parentNode?.replaceChild(mathml.cloneNode(true), el);
-        }
-      });
+      // 2. Erase the hidden MathML layers. Google Docs accidentally pastes BOTH the 
+      //    rendered visual layer AND the invisible mathml text layer, creating duplicates.
+      const mathmlElements = clone.querySelectorAll('.katex-mathml');
+      mathmlElements.forEach(el => el.remove());
+
+      // Remove screen reader labels to just copy pure visual
+      const srOnlyElements = clone.querySelectorAll('.sr-only');
+      srOnlyElements.forEach(el => el.remove());
 
       // 3. Fallback to our Blob approach which prevents structural hijacking from getSelection
       const html = clone.innerHTML;
@@ -142,6 +139,47 @@ export default function App() {
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
     }
+  };
+
+  const handleDownload = () => {
+    if (!outputRef.current) return;
+
+    const clone = outputRef.current.cloneNode(true) as HTMLElement;
+    
+    // Clean up math elements for standard Word native parsing
+    const mathmlElements = clone.querySelectorAll('.katex-mathml');
+    mathmlElements.forEach(el => el.remove());
+
+    const htmlContent = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head>
+        <meta charset='utf-8'>
+        <title>Formatted Notes</title>
+        <style>
+          body { font-family: 'Arial', sans-serif; line-height: 1.6; }
+          .katex { font-family: 'Cambria Math', serif; font-size: 1.1em; }
+        </style>
+      </head>
+      <body>
+        ${clone.innerHTML}
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([htmlContent], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'notebooklm-notes.doc';
+    
+    document.body.appendChild(link);
+    link.click();
+    
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setIsDownloaded(true);
+    setTimeout(() => setIsDownloaded(false), 2000);
   };
 
   const clearAll = () => {
@@ -299,18 +337,32 @@ export default function App() {
           Reformat
         </button>
         {output && (
-          <button
-            onClick={handleCopy}
-            className={cn(
-              "w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 md:px-6 md:py-2.5 rounded-md font-bold text-[0.875rem] transition-all shadow-sm",
-              isCopied 
-                ? "bg-green-600 text-white" 
-                : "bg-primary text-white hover:opacity-90 active:scale-95"
-            )}
-          >
-            {isCopied ? <Check className="w-4 h-4" /> : <ClipboardCopy className="w-4 h-4" />}
-            {isCopied ? 'Copied!' : 'Copy for Word'}
-          </button>
+          <>
+            <button
+              onClick={handleCopy}
+              className={cn(
+                "w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 md:px-6 md:py-2.5 rounded-md font-bold text-[0.875rem] transition-all shadow-sm",
+                isCopied 
+                  ? "bg-green-600 text-white" 
+                  : "bg-primary text-white hover:opacity-90 active:scale-95"
+              )}
+            >
+              {isCopied ? <Check className="w-4 h-4" /> : <ClipboardCopy className="w-4 h-4" />}
+              {isCopied ? 'Copied!' : 'Copy'}
+            </button>
+            <button
+              onClick={handleDownload}
+              className={cn(
+                "w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 md:px-6 md:py-2.5 rounded-md font-bold text-[0.875rem] transition-all shadow-sm",
+                isDownloaded 
+                  ? "bg-green-600 text-white" 
+                  : "bg-primary text-white hover:opacity-90 active:scale-95"
+              )}
+            >
+              {isDownloaded ? <Check className="w-4 h-4" /> : <Download className="w-4 h-4" />}
+              {isDownloaded ? 'Saved!' : 'Download .doc'}
+            </button>
+          </>
         )}
       </footer>
     </div>
