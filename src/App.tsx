@@ -146,18 +146,31 @@ export default function App() {
 
     const clone = outputRef.current.cloneNode(true) as HTMLElement;
     
-    // Clean up math elements for standard Word native parsing
-    const mathmlElements = clone.querySelectorAll('.katex-mathml');
-    mathmlElements.forEach(el => el.remove());
+    // Microsoft Word natively understands MathML, but it does NOT understand KaTeX's 
+    // complex CSS-based visual spans. We need to extract the hidden MathML and 
+    // strip the visual layer so Word parses it beautifully as native equations.
+    const katexElements = clone.querySelectorAll('.katex');
+    katexElements.forEach((el) => {
+      const mathml = el.querySelector('.katex-mathml math');
+      if (mathml) {
+        // Replace the entire KaTeX container with just the pure MathML code
+        el.parentNode?.replaceChild(mathml.cloneNode(true), el);
+      } else {
+        // Fallback to raw latex if something goes wrong
+        const annotation = el.querySelector('annotation[encoding="application/x-tex"]');
+        if (annotation) {
+          el.parentNode?.replaceChild(document.createTextNode(`$${annotation.textContent}$`), el);
+        }
+      }
+    });
 
     const htmlContent = `
-      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns:m='http://schemas.microsoft.com/office/2004/12/omml' xmlns='http://www.w3.org/TR/REC-html40'>
       <head>
         <meta charset='utf-8'>
         <title>Formatted Notes</title>
         <style>
           body { font-family: 'Arial', sans-serif; line-height: 1.6; }
-          .katex { font-family: 'Cambria Math', serif; font-size: 1.1em; }
         </style>
       </head>
       <body>
