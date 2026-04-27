@@ -109,22 +109,43 @@ export default function App() {
       const clone = outputRef.current.cloneNode(true) as HTMLElement;
 
       // 2. Google Docs does not support pasted MathML or complex KaTeX HTML structures.
-      //    If we leave the HTML, it pastes as broken multi-line characters.
-      //    We replace the entire KaTeX element with its clean, raw text representation.
-      const katexElements = clone.querySelectorAll('.katex');
-      katexElements.forEach((el) => {
+      //    We must find the top-level math elements and completely replace them with plain text
+      //    styled nicely (italic serif) so that Word/Docs can paste it simply.
+      const mathElements = clone.querySelectorAll('.math');
+      mathElements.forEach((el) => {
         const annotation = el.querySelector('annotation[encoding="application/x-tex"]');
+        let rawFormula = '';
         if (annotation && annotation.textContent) {
-          el.parentNode?.replaceChild(document.createTextNode(annotation.textContent), el);
+          rawFormula = annotation.textContent;
         } else {
-          // Fallback if annotation doesn't exist: use the visible text but strip linebreaks
-          el.parentNode?.replaceChild(document.createTextNode(el.textContent || ''), el);
+          // Fallback: try to extract just MathML text to avoid visual duplicates
+          const mathml = el.querySelector('.katex-mathml');
+          if (mathml) {
+            rawFormula = mathml.textContent || '';
+          } else {
+            rawFormula = el.textContent || '';
+          }
         }
+        
+        // Clean up the string (sometimes contains extra padding or newlines)
+        rawFormula = rawFormula.trim();
+
+        // Create a simple styled span to hold the math text natively
+        const span = document.createElement('span');
+        span.style.fontFamily = 'Georgia, serif';
+        span.style.fontStyle = 'italic';
+        
+        // Add math spaces back (if it's display math, maybe add a newline hint, 
+        // but textContent will handle it. We'll just put the formula)
+        span.textContent = ' ' + rawFormula + ' ';
+
+        el.parentNode?.replaceChild(span, el);
       });
 
       // 3. Fallback to our Blob approach which prevents structural hijacking from getSelection
+      // Now our HTML is perfectly clean of KaTeX artifacts!
       const html = clone.innerHTML;
-      const text = clone.innerText;
+      const text = clone.innerText || clone.textContent || '';
 
       const blobHtml = new Blob([html], { type: 'text/html' });
       const blobText = new Blob([text], { type: 'text/plain' });
