@@ -108,14 +108,19 @@ export default function App() {
       // 1. Create a deep clone so we don't manipulate the visible screen
       const clone = outputRef.current.cloneNode(true) as HTMLElement;
 
-      // 2. Erase the hidden MathML layers. Google Docs accidentally pastes BOTH the 
-      //    rendered visual layer AND the invisible mathml text layer, creating duplicates.
-      const mathmlElements = clone.querySelectorAll('.katex-mathml');
-      mathmlElements.forEach(el => el.remove());
-
-      // Remove screen reader labels to just copy pure visual
-      const srOnlyElements = clone.querySelectorAll('.sr-only');
-      srOnlyElements.forEach(el => el.remove());
+      // 2. Google Docs does not support pasted MathML or complex KaTeX HTML structures.
+      //    If we leave the HTML, it pastes as broken multi-line characters.
+      //    We replace the entire KaTeX element with its clean, raw text representation.
+      const katexElements = clone.querySelectorAll('.katex');
+      katexElements.forEach((el) => {
+        const annotation = el.querySelector('annotation[encoding="application/x-tex"]');
+        if (annotation && annotation.textContent) {
+          el.parentNode?.replaceChild(document.createTextNode(annotation.textContent), el);
+        } else {
+          // Fallback if annotation doesn't exist: use the visible text but strip linebreaks
+          el.parentNode?.replaceChild(document.createTextNode(el.textContent || ''), el);
+        }
+      });
 
       // 3. Fallback to our Blob approach which prevents structural hijacking from getSelection
       const html = clone.innerHTML;
